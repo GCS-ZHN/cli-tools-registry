@@ -28,8 +28,6 @@ def sview():
 
     result = subprocess.run(['sinfo', '-N', '--json'], stdout=subprocess.PIPE)
     if result.returncode != 0:
-        err = result.stdout.decode('utf-8')
-        print(err)
         exit(1)
 
     output = result.stdout.decode('utf-8')

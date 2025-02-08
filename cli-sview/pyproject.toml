@@ -1,6 +1,6 @@
 [project]
 name = "cli-sview"
-version = "0.1.0"
+version = "0.1.1"
 description = "Pretty view for available resources in Slurm"
 authors = [
     { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }
