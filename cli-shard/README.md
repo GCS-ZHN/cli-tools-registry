@@ -7,4 +7,4 @@ Shard the input file into smaller files
 shard -i data.csv -o data/
 ```
 
-for more options, see `shard --help`.
+for more usage options, see `shard --help`.
