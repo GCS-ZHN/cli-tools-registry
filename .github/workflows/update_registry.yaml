@@ -1,0 +1,39 @@
+name: Update Registry
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'cli-*/**'  # 任何命令目录的变更
+
+jobs:
+  update-registry:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 2
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: pip install pyyaml toml packaging
+
+    - name: Run registry updater
+      run: |
+        set -e
+        python update_registry.py
+        
+        # 仅在registry.yaml有变更时提交
+        if git diff --quiet HEAD -- registry.yaml; then
+          echo "No registry changes to commit"
+        else
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add registry.yaml
+          git commit -m "registry: auto-update registry"
+          git push
+        fi
