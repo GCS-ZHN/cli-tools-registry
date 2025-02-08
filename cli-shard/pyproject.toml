@@ -1,0 +1,31 @@
+[project]
+name = "cli-shard"
+version = "0.1.0"
+description = "Shard the input file into smaller files"
+authors = [
+    { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT" }
+dependencies = [
+    "click",
+    "pandas",
+    "numpy",
+    "openpyxl",
+    "table"
+]
+
+[project.scripts]
+shard = "cli_shard.cli:shard"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
