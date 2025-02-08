@@ -24,12 +24,16 @@ def get_modified_clis() -> List[str]:
                 modified.add(dir_name)
     return list(modified)
 
-def get_cli_version(cli_dir: str) -> str:
+def get_cli_info(cli_dir: str) -> str:
     """Extract version from pyproject.toml"""
     toml_path = Path(cli_dir) / "pyproject.toml"
     with open(toml_path) as f:
         data = toml.load(f)
-    return data["project"]["version"]
+    return {
+        'description': data["project"]["description"],
+        'version': data["project"]["version"],
+        'authors': [dict(a) for a in data["project"]["authors"]]
+    }
 
 def get_current_commit() -> str:
     """Get current commit hash"""
@@ -45,7 +49,8 @@ def update_registry(cli_dirs: List[str]):
     
     for cli_dir in cli_dirs:
         cli_name = cli_dir[len(CLI_PREFIX):]
-        version_str = get_cli_version(cli_dir)
+        cli_info = get_cli_info(cli_dir)
+        version_str = cli_info['version']
         commit = get_current_commit()
         
         try:
@@ -55,14 +60,18 @@ def update_registry(cli_dirs: List[str]):
             continue
 
         # Find or create entry
+        if "commands" not in registry:
+            registry['commands'] = []
+
         entry = next((c for c in registry["commands"] if c["name"] == cli_name), None)
+
         if not entry:
             # Create new entry for new CLI
             entry = {
                 "name": cli_name,
-                "description": "A new CLI tool",  # Default description
+                "description": cli_info['description'],
                 "path": cli_dir,
-                "author": "Unknown",  # Default author
+                "authors": cli_info['authors'],
                 "latest": version_str,
                 "versions": []
             }
