@@ -83,8 +83,9 @@ def update_registry(cli_dirs: List[str]):
                 reverse=True
             )
         else:
-            raise RuntimeError(f"Version {version_str} for {cli_name} already exists")
-        
+            print(f"Version {version_str} for {cli_name} already exists")
+            continue
+
         # Update latest version using proper version comparison
         latest_version = parse_version(entry["latest"])
         if current_version > latest_version:
