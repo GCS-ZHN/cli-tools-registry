@@ -8,11 +8,15 @@ on:
 jobs:
   update-registry:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 添加写入权限
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
       with:
         fetch-depth: 2
+        token: ${{ secrets.GITHUB_TOKEN }}  # 显式使用GITHUB_TOKEN
+        persist-credentials: true  # 保持认证信息
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -27,6 +31,9 @@ jobs:
         set -e
         python update_registry.py
         
+        # 配置Git认证
+        git remote set-url origin https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        
         # 仅在registry.yaml有变更时提交
         if git diff --quiet HEAD -- registry.yaml; then
           echo "No registry changes to commit"
@@ -34,6 +41,7 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add registry.yaml
-          git commit -m "registry: auto-update registry"
+          git commit -m "Auto-update registry"
+          git push origin main
         fi
 
