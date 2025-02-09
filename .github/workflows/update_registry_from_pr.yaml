@@ -34,9 +34,13 @@ jobs:
     - name: Run registry updater
       run: |
         set -e
+        python -m pip install pipx
+        python -m pipx ensurepath
+        
         python update_registry.py \
           --before "${{ steps.get_base_sha.outputs.base_sha }}" \
-          --after "HEAD"
+          --after "HEAD" \
+          --check-cli
 
     - name: Create PR comment
       uses: actions/github-script@v6
