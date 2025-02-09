@@ -9,14 +9,15 @@ jobs:
   update-registry:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # 添加写入权限
+      contents: write
     steps:
+    # fetch all commits and enable git push
     - name: Checkout code
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}  # 显式使用GITHUB_TOKEN
-        persist-credentials: true  # 保持认证信息
+        token: ${{ secrets.GITHUB_TOKEN }}
+        persist-credentials: true
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -33,8 +34,6 @@ jobs:
         python update_registry.py \
           --before ${{ github.event.before }} \
           --after ${{ github.event.after }}
-  
-        git remote set-url origin https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
         if git diff --quiet HEAD -- registry.yaml; then
           echo "No registry changes to commit"
