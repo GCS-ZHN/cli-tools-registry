@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-sview = "cli_sview.cli:sview"
+sview1 = "cli_sview.cli:sview"
 
 [build-system]
 requires = ["setuptools>=61.0"]
