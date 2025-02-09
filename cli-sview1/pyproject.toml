@@ -1,0 +1,28 @@
+[project]
+name = "cli-sview"
+version = "0.1.0"
+description = "Pretty view for available resources in Slurm"
+authors = [
+    { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT" }
+dependencies = [
+    "click",
+    "prettytable"
+]
+
+[project.scripts]
+sview = "cli_sview.cli:sview"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
