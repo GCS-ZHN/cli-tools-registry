@@ -51,5 +51,5 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: '⚠️ Registry update check failed. Please run `update_registry.py` locally to check it.'
+            body: '⚠️ Registry update check failed. Please run `update_registry.py --before "${{ steps.get_base_sha.outputs.base_sha }}" --after "HEAD" --check-cli` locally to check it.'
           }) 
