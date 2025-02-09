@@ -3,9 +3,12 @@ import subprocess
 import yaml
 from pathlib import Path
 import toml
-from typing import List, Dict
+from typing import List
 from packaging.version import InvalidVersion, parse as parse_version
 import argparse
+import tempfile
+import os
+import sys
 
 REGISTRY_PATH = Path("registry.yaml")
 CLI_PREFIX = "cli-"
@@ -129,8 +132,56 @@ def update_registry(cli_dirs: List[str], commit_sha: str):
             indent=4)
 
 
+def validate_cli_installation(cli_dirs: str):
+    """Validate CLI installation via pipx with proper path handling"""
+    
+    with tempfile.TemporaryDirectory(prefix=f"pipx-home-") as pipx_dir:
+        env = os.environ.copy()
+        env['PIPX_HOME'] = pipx_dir
+        env['PIPX_BIN_DIR'] = f'{pipx_dir}/bin'
+        for cli_dir in cli_dirs:
+            cli_name = cli_dir[len(CLI_PREFIX):]
+            try:
+                install_cmd = (
+                    f"pipx install --python {sys.executable} --force ./{cli_dir} "
+                    f" && "
+                    f"pipx run --spec ./{cli_dir} {cli_name} --help"
+                )
+                result = subprocess.run(
+                    install_cmd,
+                    shell=True,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    executable="/bin/bash",
+                    env=env
+                )
+                
+                print(f"✅ Successfully validated {cli_name}\n{result.stdout}")
+                
+            except subprocess.CalledProcessError as e:
+                error_msg = (
+                    f"Validation failed for {cli_name}\n"
+                    f"Command: {e.cmd}\n"
+                    f"Exit code: {e.returncode}\n"
+                    f"STDOUT: {e.stdout}\n"
+                    f"STDERR: {e.stderr}"
+                )
+                raise RuntimeError(error_msg) from e
+            finally:
+                # 确保清理安装
+                subprocess.run(
+                    f"pipx uninstall {cli_name}",
+                    shell=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=env
+                )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Update CLI registry')
+    parser.add_argument('--check-cli', action='store_true', help='Validate CLI installations')
     parser.add_argument(
         '--before',
         default=git_rev_parse("HEAD~1"),
@@ -145,6 +196,11 @@ if __name__ == "__main__":
         modified_clis = get_modified_clis(args.before, args.after)
         if modified_clis:
             print(f"Updating registry for: {', '.join(modified_clis)}")
+            
+            if args.check_cli:
+                print("Validating CLI installations...")
+                validate_cli_installation(modified_clis)
+            
             update_registry(modified_clis, args.after)
         else:
             print("No CLI directories modified")
