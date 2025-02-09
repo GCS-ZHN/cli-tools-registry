@@ -5,17 +5,36 @@ from pathlib import Path
 import toml
 from typing import List, Dict
 from packaging.version import InvalidVersion, parse as parse_version
+import argparse
 
 REGISTRY_PATH = Path("registry.yaml")
 CLI_PREFIX = "cli-"
 
-def get_modified_clis() -> List[str]:
-    """Detect modified CLI directories in the latest commit"""
+
+def git_rev_parse(head: str) -> str:
+    """Get commit hash"""
+    return subprocess.check_output(
+        ["git", "rev-parse", head],
+        text=True
+    ).strip()
+
+
+def get_modified_clis(before_sha: str, after_sha: str) -> List[str]:
+    """Detect modified CLI directories between two commits"""
+    # Handle empty before_sha (fallback to HEAD~1)
+    if not before_sha.strip():
+        before_sha = git_rev_parse("HEAD~1")
+
+    # Handle empty after_sha (use current HEAD)
+    if not after_sha.strip():
+        after_sha = git_rev_parse("HEAD")
+
     result = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
+        ["git", "diff", "--name-only", before_sha, after_sha],
         capture_output=True,
         text=True
     )
+    
     modified = set()
     for filepath in result.stdout.splitlines():
         if "/" in filepath:
@@ -23,6 +42,7 @@ def get_modified_clis() -> List[str]:
             if dir_name.startswith(CLI_PREFIX):
                 modified.add(dir_name)
     return list(modified)
+
 
 def get_cli_info(cli_dir: str) -> str:
     """Extract version from pyproject.toml"""
@@ -35,14 +55,8 @@ def get_cli_info(cli_dir: str) -> str:
         'authors': [dict(a) for a in data["project"]["authors"]]
     }
 
-def get_current_commit() -> str:
-    """Get current commit hash"""
-    return subprocess.check_output(
-        ["git", "rev-parse", "HEAD"],
-        text=True
-    ).strip()
 
-def update_registry(cli_dirs: List[str]):
+def update_registry(cli_dirs: List[str], commit_sha: str):
     """Update registry.yaml with new versions or add new entries"""
     with open(REGISTRY_PATH) as f:
         registry = yaml.safe_load(f) or {"commands": []}
@@ -51,7 +65,7 @@ def update_registry(cli_dirs: List[str]):
         cli_name = cli_dir[len(CLI_PREFIX):]
         cli_info = get_cli_info(cli_dir)
         version_str = cli_info['version']
-        commit = get_current_commit()
+        commit = commit_sha
         
         try:
             current_version = parse_version(version_str)
@@ -109,14 +123,26 @@ def update_registry(cli_dirs: List[str]):
             allow_unicode=True,
             indent=4)
 
+
 if __name__ == "__main__":
-    modified_clis = get_modified_clis()
+    parser = argparse.ArgumentParser(description='Update CLI registry')
+    parser.add_argument(
+        '--before',
+        default=git_rev_parse("HEAD~1"),
+        help='Previous commit SHA (default: HEAD~1)')
+    parser.add_argument(
+        '--after',
+        default=git_rev_parse("HEAD"),
+        help='Current commit SHA (default: HEAD)')
+    args = parser.parse_args()
+
     try:
+        modified_clis = get_modified_clis(args.before, args.after)
         if modified_clis:
             print(f"Updating registry for: {', '.join(modified_clis)}")
-            update_registry(modified_clis)
+            update_registry(modified_clis, args.after)
         else:
-            raise RuntimeError("No CLI directories modified")
+            print("No CLI directories modified")
     except Exception as e:
-        print(e)
+        print(f"Error: {str(e)}")
         exit(1)

@@ -29,11 +29,13 @@ jobs:
     - name: Run registry updater
       run: |
         set -e
-        python update_registry.py
-        
+        # 处理首次提交的情况（before SHA为空）
+        BEFORE_SHA="${{ github.event.before || 'HEAD~1' }}"
+        python update_registry.py \
+          --before "$BEFORE_SHA" \
+          --after "${{ github.event.after }}"
         # 配置Git认证
         git remote set-url origin https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-        
         # 仅在registry.yaml有变更时提交
         if git diff --quiet HEAD -- registry.yaml; then
           echo "No registry changes to commit"
