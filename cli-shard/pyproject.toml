@@ -1,6 +1,6 @@
 [project]
 name = "cli-shard"
-version = "0.1.2"
+version = "0.1.0"
 description = "Shard the input file into smaller files"
 authors = [
     { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }
