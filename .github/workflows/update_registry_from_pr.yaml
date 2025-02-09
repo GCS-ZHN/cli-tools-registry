@@ -1,0 +1,51 @@
+name: PR Registry Check
+on:
+  pull_request:
+    paths:
+      - 'cli-*/**'
+
+jobs:
+  verify-registry:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: pip install pyyaml toml packaging
+
+    - name: Get base SHA
+      id: get_base_sha
+      run: |
+        BASE_SHA=$(git merge-base ${{ github.event.pull_request.base.sha }} HEAD)
+        echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
+
+    - name: Run registry updater
+      run: |
+        set -e
+        python update_registry.py \
+          --before "${{ steps.get_base_sha.outputs.base_sha }}" \
+          --after "HEAD"
+
+    - name: Create PR comment
+      uses: actions/github-script@v6
+      if: failure()
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '⚠️ Registry update check failed. Please run `update_registry.py` locally to check it.'
+          }) 
