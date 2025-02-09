@@ -14,7 +14,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
       with:
-        fetch-depth: 2
+        fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}  # 显式使用GITHUB_TOKEN
         persist-credentials: true  # 保持认证信息
 
@@ -30,7 +30,6 @@ jobs:
       run: |
         set -e
 
-        git diff --name-only ${{ github.event.before }} ${{ github.event.after }}
         python update_registry.py \
           --before ${{ github.event.before }} \
           --after ${{ github.event.after }}

@@ -32,9 +32,14 @@ def get_modified_clis(before_sha: str, after_sha: str) -> List[str]:
     result = subprocess.run(
         ["git", "diff", "--name-only", before_sha, after_sha],
         capture_output=True,
-        text=True
+        text=True,
     )
-    
+    try:
+        result.check_returncode()
+    except subprocess.CalledProcessError as e:
+        print(result.stderr)
+        raise e
+
     modified = set()
     for filepath in result.stdout.splitlines():
         if "/" in filepath:
