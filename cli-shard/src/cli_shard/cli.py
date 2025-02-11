@@ -8,7 +8,7 @@ import click
     '--input_file', '-i',
     type=click.Path(exists=True, resolve_path=True, path_type=Path),
     required=True,
-    help="Input file path (supported formats: csv/tsv/xlsx/xls/txt/h5/pkl)"
+    help="Input file path (supported formats: csv/tsv/xlsx/xls/txt/pkl)"
 )
 @click.option(
     '--output_dir', '-o',
@@ -43,7 +43,6 @@ def shard(input_file: Path, output_dir: Path, num_shard: int, shuffle: bool = Fa
         '.txt': pd.read_table,
         '.tsv': pd.read_table,
         '.csv': pd.read_csv,
-        '.h5': pd.read_hdf,
         '.pkl': pd.read_pickle,
         '.xlsx': pd.read_excel,
         '.xls': pd.read_excel
