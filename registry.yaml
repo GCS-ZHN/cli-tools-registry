@@ -5,8 +5,10 @@ commands:
     authors:
     -   name: Honi Zhang
         email: zhang.h.n@foxmail.com
-    latest: 0.1.0
+    latest: 0.1.1
     versions:
+    -   version: 0.1.1
+        commit: 19f63cbab70462ecfe72d25caccd5d7769f5c16c
     -   version: 0.1.0
         commit: 2a6a3962b3051fabfd1bbdc65205777a176347e8
 -   name: sview
