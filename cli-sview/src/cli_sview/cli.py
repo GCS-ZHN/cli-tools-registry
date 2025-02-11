@@ -1,5 +1,6 @@
 import subprocess
 import json
+import shutil
 import click
 
 from prettytable import PrettyTable
@@ -20,13 +21,16 @@ def sview():
     """
     Pretty view for available resources in Slurm.
     """
+    sinfo_bin = shutil.which('sinfo')
+    if sinfo_bin is None:
+        print('Please install slurm first!')
+        exit(1)
     try:
         result = subprocess.run(
-            ['sinfo', '-N', '--json'],
+            [sinfo_bin, '-N', '--json'],
             capture_output=True,
             text=True,
-            check=True,
-            shell=True)
+            check=True)
     except subprocess.CalledProcessError as e:
         error_msg = (
             f"Excutate command: {e.cmd} failed\n"
