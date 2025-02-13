@@ -25,3 +25,13 @@ commands:
         commit: 9a98278434d9dfe42ef23cea9cc23a3bbec627cb
     -   version: 0.1.0
         commit: 2a6a3962b3051fabfd1bbdc65205777a176347e8
+-   name: code2cursor
+    description: Tools to migrate from vscode to cursor.
+    path: cli-code2cursor
+    authors:
+    -   name: Honi Zhang
+        email: zhang.h.n@foxmail.com
+    latest: 0.1.0
+    versions:
+    -   version: 0.1.0
+        commit: 2e01d431342a28faeec0176b81e3b570054bd604
