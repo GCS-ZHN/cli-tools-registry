@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Dict, Optional
 
 from cli_code2cursor import utils
+from questionary import checkbox
 
 
 @click.group()
@@ -80,11 +81,32 @@ def extensions():
             click.echo("✅ All extensions already exist in Cursor")
             return
 
-        click.echo(f"🔍 Found {len(migratable)} migratable extensions")
+        # Prepare checklist items
+        choices = [
+            {
+                'name': f"{ext['identifier']['id']} ({ext['version']})",
+                'value': ext,
+                'checked': True  # Default all selected
+            }
+            for ext in migratable
+        ]
+
+        # Show interactive checklist
+        selected = checkbox(
+            "Select extensions to migrate:",
+            choices=choices,
+            instruction="(↑/↓ to move, space to toggle, enter to confirm)"
+        ).ask()
+
+        if not selected:
+            click.echo("🚫 Migration canceled")
+            return
+
+        # Process selected extensions
         migrated_count = 0
         skipped_count = 0
-
-        for ext in migratable:
+        
+        for ext in selected:
             ext_id = ext['identifier']['id']
             version = ext['version']
             
@@ -97,23 +119,6 @@ def extensions():
 
             dest_path = cursor_dir / src_path.name
             
-            # Interactive prompt
-            choice = click.prompt(
-                f"\nMigrate {ext_id} ({version})?",
-                type=click.Choice(['y', 'n', 'a', 'q'], case_sensitive=False),
-                default='y',
-                show_choices=True,
-                prompt_suffix=" (Y)es/(N)o/(A)ll/(Q)uit "
-            ).lower()
-
-            if choice == 'q':
-                break
-            if choice == 'n':
-                skipped_count += 1
-                continue
-            if choice == 'a':
-                auto_migrate = True
-
             # Perform migration
             try:
                 if dest_path.exists():
