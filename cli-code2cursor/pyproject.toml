@@ -1,0 +1,27 @@
+[project]
+name = "cli-code2cursor"
+version = "0.1.0"
+description = "Tools to migrate from vscode to cursor."
+authors = [
+    { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT" }
+dependencies = [
+    "click"
+]
+
+[project.scripts]
+code2cursor = "cli_code2cursor.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
