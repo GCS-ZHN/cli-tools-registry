@@ -11,3 +11,12 @@ A command-line tool for migrating VSCode extensions to Cursor editor while maint
 - ✅ Interactive migration confirmation
 - 📦 Preserves extension metadata and versions
 - ♻️ Safe copy with conflict detection
+
+
+## Usage
+
+```bash
+# migrate extensions from vscode to cursor
+code2cursor extensions
+```
+
