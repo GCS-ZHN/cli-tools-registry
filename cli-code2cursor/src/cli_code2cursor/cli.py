@@ -57,28 +57,36 @@ def save_extensions(config_dir: Path, extensions: List[Dict]) -> bool:
 
 
 @main.command()
-def extensions():
+@click.option('--reverse', '-r', is_flag=True, help='Reverse the migration (Cursor to VSCode)')
+def extensions(reverse: bool = False):
     """Migrate extensions from VSCode to Cursor"""
     try:
         # Initialize directories
-        vscode_dir = get_extension_dir("vscode")
-        cursor_dir = get_extension_dir("cursor")
-        cursor_dir.mkdir(parents=True, exist_ok=True)
+        if reverse:
+            source_app = "cursor"
+            target_app = "vscode"
+        else:
+            source_app = "vscode"
+            target_app = "cursor"
+
+        source_dir = get_extension_dir(source_app)
+        target_dir = get_extension_dir(target_app)
+        target_dir.mkdir(parents=True, exist_ok=True)
 
         # Load extension manifests
-        vscode_extensions = load_extensions(vscode_dir)
-        cursor_extensions = load_extensions(cursor_dir)
-        
+        source_extensions = load_extensions(source_dir)
+        target_extensions = load_extensions(target_dir)
+
         # Filter migratable extensions
-        cursor_ids = {e['identifier']['id'] for e in cursor_extensions}
+        cursor_ids = {e['identifier']['id'] for e in target_extensions}
         migratable = [
-            e for e in vscode_extensions
+            e for e in source_extensions
             if e['identifier']['id'] not in cursor_ids
             and not e['metadata'].get('isBuiltin', False)
         ]
 
         if not migratable:
-            click.echo("✅ All extensions already exist in Cursor")
+            click.echo(f"✅ All extensions already exist in {target_app}")
             return
 
         # Prepare checklist items
@@ -93,32 +101,33 @@ def extensions():
 
         # Show interactive checklist
         selected = checkbox(
-            "Select extensions to migrate:",
+            f"Select extensions to migrate {source_app} to {target_app}:",
             choices=choices,
             instruction="(↑/↓ to move, space to toggle, enter to confirm)"
         ).ask()
 
         if not selected:
-            click.echo("🚫 Migration canceled")
+            click.echo(
+                f"🚫 Migration canceled for {source_app} to {target_app}")
             return
 
         # Process selected extensions
         migrated_count = 0
         skipped_count = 0
-        
+
         for ext in selected:
             ext_id = ext['identifier']['id']
             version = ext['version']
-            
+
             # Locate source extension
-            src_path = locate_extension(vscode_dir, ext_id, version)
+            src_path = locate_extension(source_dir, ext_id, version)
             if not src_path:
                 click.echo(f"⚠️  Extension not found: {ext_id} ({version})")
                 skipped_count += 1
                 continue
 
-            dest_path = cursor_dir / src_path.name
-            
+            dest_path = target_dir / src_path.name
+
             # Perform migration
             try:
                 if dest_path.exists():
@@ -126,7 +135,7 @@ def extensions():
                     skipped_count += 1
                 else:
                     shutil.copytree(src_path, dest_path, symlinks=True)
-                    
+
                     # Create new extension entry
                     new_entry = {
                         "identifier": ext['identifier'],
@@ -145,21 +154,23 @@ def extensions():
                             "source": "migrated"
                         }
                     }
-                    
+
                     # Update extensions.json
-                    cursor_extensions.append(new_entry)
-                    if save_extensions(cursor_dir, cursor_extensions):
+                    target_extensions.append(new_entry)
+                    if save_extensions(target_dir, target_extensions):
                         click.echo(f"✅ Success: {dest_path.name}")
                         migrated_count += 1
                     else:
-                        click.echo(f"✅ Copied but failed to update registry: {dest_path.name}")
+                        click.echo(
+                            f"✅ Copied but failed to update registry: {dest_path.name}")
                         skipped_count += 1
 
             except Exception as e:
                 click.echo(f"❌ Failed: {str(e)}")
                 skipped_count += 1
 
-        click.echo(f"\nMigration result: {migrated_count} succeeded, {skipped_count} skipped")
+        click.echo(
+            f"\nMigration result: {migrated_count} succeeded, {skipped_count} skipped")
 
     except Exception as e:
         click.echo(f"🔥 Critical error: {str(e)}")
