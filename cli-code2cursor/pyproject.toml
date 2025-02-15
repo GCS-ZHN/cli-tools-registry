@@ -10,7 +10,10 @@ requires-python = ">=3.7"
 license = { text = "MIT" }
 dependencies = [
     "click",
-    "questionary"
+    "questionary",
+    "appdirs",
+    "dataclasses",
+    "json5"
 ]
 
 [project.scripts]
