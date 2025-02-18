@@ -46,12 +46,12 @@ class ExtensionMetadata(CustomDataClassJsonMixin):
     publisher_id: str
     publisher_display_name: str
     target_platform: str
-    updated: bool
+    updated: bool # is latest version
     is_pre_release_version: bool
     has_pre_release_version: bool
     installed_timestamp: int
     source: str
-    pinned: bool = field(default=False)
+    pinned: bool = field(default=False) # is version pinned
     is_builtin: bool = field(default=False)
 
 
@@ -81,15 +81,6 @@ def load_extensions(config_dir: Path) -> List[Extension]:
         return [Extension.from_dict(ext) for ext in json.load(f)]
 
 
-def locate_extension(ext_dir: Path, ext_id: str, version: str) -> Optional[Path]:
-    """Find extension installation directory"""
-    for entry in ext_dir.iterdir():
-        if entry.is_dir() and entry.name.startswith(ext_id):
-            if entry.name == f"{ext_id}-{version}" or entry.name.startswith(f"{ext_id}-"):
-                return entry
-    return None
-
-
 def save_extensions(config_dir: Path, extensions: List[Extension]):
     """Save extensions.json to config directory"""
     extensions_file = config_dir / "extensions.json"
@@ -105,9 +96,4 @@ def save_extensions(config_dir: Path, extensions: List[Extension]):
 
 if __name__ == '__main__':
     extensions = load_extensions(get_extension_dir('vscode'))
-    for ext in extensions:
-        ext.identifier.id = 'test'
-
-    print(extensions[0] == extensions[1])
-    # print(set(extensions))
-    # save_extensions(Path.cwd(), extensions)
+    save_extensions(Path.cwd(), extensions)

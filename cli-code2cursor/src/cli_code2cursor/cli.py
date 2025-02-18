@@ -18,15 +18,19 @@ from packaging import version as version_parser
 from pathlib import Path
 from typing import List, Optional
 
-from cli_code2cursor import extensions
+from cli_code2cursor import extensions, __version__
 from questionary import checkbox, confirm
 from dataclasses import dataclass, fields
 
 
 @click.group()
 def main():
-    """CLI for migrating VSCode extensions to Cursor"""
-    pass
+   pass
+
+
+@main.command('version')
+def version_cli():
+    click.echo(f'code2cursor {__version__}')
 
 
 @main.command('extensions')
@@ -49,31 +53,37 @@ def extensions_cli(reverse: bool = False, force: bool = False):
 
         # Load extension manifests
         source_extensions = extensions.load_extensions(source_dir)
+        source_extensions_map = {
+            e.identifier.id: e for e in source_extensions
+            if e.location.path.exists() and not e.metadata.is_builtin
+            and e.metadata.updated
+        }
+
         if not force:
             target_extensions = extensions.load_extensions(target_dir)
-            target_extensions_map = {e.identifier.id: e for e in target_extensions}
+            target_extensions_map = {
+                e.identifier.id: e for e in target_extensions
+                if e.location.path.exists() and not e.metadata.is_builtin
+            }
         else:
-            target_extensions = []
             target_extensions_map = {}
 
         # Filter migratable extensions
         migratable = {}
-        for e in source_extensions:
-            if e.metadata.is_builtin:
-                continue
-            elif e.identifier.id in migratable:
-                old_e, action = migratable[e.identifier.id]
-                if version_parser.parse(e.version) > version_parser.parse(old_e.version):
-                    migratable[e.identifier.id] = (e, action)
+        for eid, e in source_extensions_map.items():
 
-            elif e.identifier.id not in target_extensions_map:
+            if eid not in target_extensions_map:
                 action = 'force-update' if force else 'new'
-                migratable[e.identifier.id] = (e, action)
+                migratable[eid] = (e, action)
 
             else:
-                target_e = target_extensions_map[e.identifier.id]
-                if version_parser.parse(e.version) > version_parser.parse(target_e.version):
-                    migratable[e.identifier.id] = (e, 'update')
+                target_e = target_extensions_map[eid]
+                e_version = version_parser.parse(e.version)
+                t_version = version_parser.parse(target_e.version)
+                if e_version > t_version:
+                    migratable[e.identifier.id] = (e, f'upgrade from {t_version}')
+                elif e_version < t_version:
+                    migratable[e.identifier.id] = (e, f'downgrade from {t_version}')
 
         if not migratable:
             click.echo(f"✅ All extensions already exist in {target_app}")
@@ -110,7 +120,7 @@ def extensions_cli(reverse: bool = False, force: bool = False):
             version = ext.version
 
             # Locate source extension
-            src_path = extensions.locate_extension(source_dir, ext_id, version)
+            src_path = ext.location.path
             if not src_path:
                 click.echo(f"⚠️  Extension not found: {ext_id} ({version})")
                 skipped_count += 1
@@ -134,9 +144,9 @@ def extensions_cli(reverse: bool = False, force: bool = False):
                 new_entry.relative_location = dest_path.name
                 new_entry.metadata.installed_timestamp = int(time.time() * 1000)
                 # Update extensions.json
-                target_extensions.append(new_entry)
+                target_extensions_map[new_entry.identifier.id] = new_entry
                 try:
-                    extensions.save_extensions(target_dir, target_extensions)
+                    extensions.save_extensions(target_dir, target_extensions_map.values())
                     click.echo(f"✅ Success: {dest_path.name}")
                     migrated_count += 1
                 except Exception as e:
