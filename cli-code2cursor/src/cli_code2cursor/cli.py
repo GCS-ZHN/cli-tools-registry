@@ -12,11 +12,14 @@ import json5 as json
 import appdirs
 import shutil
 import time
-from pathlib import Path
-from typing import List, Dict, Optional
+import copy
 
-from cli_code2cursor import utils
-from questionary import checkbox
+from packaging import version as version_parser
+from pathlib import Path
+from typing import List, Optional
+
+from cli_code2cursor import extensions
+from questionary import checkbox, confirm
 from dataclasses import dataclass, fields
 
 
@@ -26,52 +29,10 @@ def main():
     pass
 
 
-def get_extension_dir(app: str) -> Path:
-    """Get extensions directory for specified editor"""
-    is_remote = utils.is_remote()
-    config_dir = utils.find_user_config_dir(app, local=not is_remote)
-    return config_dir / "extensions"
-
-
-def load_extensions(config_dir: Path) -> List[Dict]:
-    """Load extensions.json from config directory"""
-    extensions_file = config_dir / "extensions.json"
-    if not extensions_file.exists():
-        return []
-    try:
-        with open(extensions_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception as e:
-        click.echo(f"⚠️  Error loading extensions: {str(e)}")
-        return []
-
-
-def locate_extension(ext_dir: Path, ext_id: str, version: str) -> Optional[Path]:
-    """Find extension installation directory"""
-    for entry in ext_dir.iterdir():
-        if entry.is_dir() and entry.name.startswith(ext_id):
-            if entry.name == f"{ext_id}-{version}" or entry.name.startswith(f"{ext_id}-"):
-                return entry
-    return None
-
-
-def save_extensions(config_dir: Path, extensions: List[Dict]) -> bool:
-    """Save extensions.json to config directory"""
-    extensions_file = config_dir / "extensions.json"
-    try:
-        with open(extensions_file, 'w', encoding='utf-8') as f:
-            json.dump(
-                extensions, f, indent=2, 
-                ensure_ascii=False, quote_keys=True)
-        return True
-    except Exception as e:
-        click.echo(f"⚠️  Failed to save extensions.json: {str(e)}")
-        return False
-
-
-@main.command()
+@main.command('extensions')
 @click.option('--reverse', '-r', is_flag=True, help='Reverse the migration (Cursor to VSCode)')
-def extensions(reverse: bool = False):
+@click.option('--force', '-f', is_flag=True, help='Force the migration')
+def extensions_cli(reverse: bool = False, force: bool = False):
     """Migrate extensions from VSCode to Cursor"""
     try:
         # Initialize directories
@@ -82,21 +43,37 @@ def extensions(reverse: bool = False):
             source_app = "vscode"
             target_app = "cursor"
 
-        source_dir = get_extension_dir(source_app)
-        target_dir = get_extension_dir(target_app)
+        source_dir = extensions.get_extension_dir(source_app)
+        target_dir = extensions.get_extension_dir(target_app)
         target_dir.mkdir(parents=True, exist_ok=True)
 
         # Load extension manifests
-        source_extensions = load_extensions(source_dir)
-        target_extensions = load_extensions(target_dir)
+        source_extensions = extensions.load_extensions(source_dir)
+        if not force:
+            target_extensions = extensions.load_extensions(target_dir)
+            target_extensions_map = {e.identifier.id: e for e in target_extensions}
+        else:
+            target_extensions = []
+            target_extensions_map = {}
 
         # Filter migratable extensions
-        cursor_ids = {e['identifier']['id'] for e in target_extensions}
-        migratable = [
-            e for e in source_extensions
-            if e['identifier']['id'] not in cursor_ids
-            and not e['metadata'].get('isBuiltin', False)
-        ]
+        migratable = {}
+        for e in source_extensions:
+            if e.metadata.is_builtin:
+                continue
+            elif e.identifier.id in migratable:
+                old_e, action = migratable[e.identifier.id]
+                if version_parser.parse(e.version) > version_parser.parse(old_e.version):
+                    migratable[e.identifier.id] = (e, action)
+
+            elif e.identifier.id not in target_extensions_map:
+                action = 'force-update' if force else 'new'
+                migratable[e.identifier.id] = (e, action)
+
+            else:
+                target_e = target_extensions_map[e.identifier.id]
+                if version_parser.parse(e.version) > version_parser.parse(target_e.version):
+                    migratable[e.identifier.id] = (e, 'update')
 
         if not migratable:
             click.echo(f"✅ All extensions already exist in {target_app}")
@@ -105,15 +82,15 @@ def extensions(reverse: bool = False):
         # Prepare checklist items
         choices = [
             {
-                'name': f"{ext['identifier']['id']} ({ext['version']})",
+                'name': f"{ext.identifier.id} ({ext.version}) [{action}]",
                 'value': ext,
                 'checked': True  # Default all selected
             }
-            for ext in migratable
+            for ext, action in migratable.values()
         ]
 
         # Show interactive checklist
-        selected = checkbox(
+        selected: List[extensions.Extension] = checkbox(
             f"Select extensions to migrate {source_app} to {target_app}:",
             choices=choices,
             instruction="(↑/↓ to move, space to toggle, enter to confirm)"
@@ -129,11 +106,11 @@ def extensions(reverse: bool = False):
         skipped_count = 0
 
         for ext in selected:
-            ext_id = ext['identifier']['id']
-            version = ext['version']
+            ext_id = ext.identifier.id
+            version = ext.version
 
             # Locate source extension
-            src_path = locate_extension(source_dir, ext_id, version)
+            src_path = extensions.locate_extension(source_dir, ext_id, version)
             if not src_path:
                 click.echo(f"⚠️  Extension not found: {ext_id} ({version})")
                 skipped_count += 1
@@ -144,39 +121,28 @@ def extensions(reverse: bool = False):
             # Perform migration
             try:
                 if dest_path.exists():
-                    click.echo(f"⏩ Already exists: {dest_path.name}")
-                    skipped_count += 1
-                else:
-                    shutil.copytree(src_path, dest_path, symlinks=True)
-
-                    # Create new extension entry
-                    new_entry = {
-                        "identifier": ext['identifier'],
-                        "version": ext['version'],
-                        "location": {
-                            "$mid": 1,
-                            "path": str(dest_path),
-                            "scheme": "file"
-                        },
-                        "relativeLocation": dest_path.name,
-                        "metadata": {
-                            **ext.get('metadata', {}),
-                            "installedTimestamp": int(time.time() * 1000),
-                            "updated": False,
-                            "pinned": False,
-                            "source": "migrated"
-                        }
-                    }
-
-                    # Update extensions.json
-                    target_extensions.append(new_entry)
-                    if save_extensions(target_dir, target_extensions):
-                        click.echo(f"✅ Success: {dest_path.name}")
-                        migrated_count += 1
+                    if force or confirm(f"⚠️  {dest_path.name} already exists, overwrite?").ask():
+                        shutil.rmtree(dest_path)
                     else:
-                        click.echo(
-                            f"✅ Copied but failed to update registry: {dest_path.name}")
+                        click.echo(f"🚫 Skipping: {dest_path.name}")
                         skipped_count += 1
+                        continue
+
+                shutil.copytree(src_path, dest_path, symlinks=True)
+                new_entry = copy.deepcopy(ext)
+                new_entry.location.path = dest_path
+                new_entry.relative_location = dest_path.name
+                new_entry.metadata.installed_timestamp = int(time.time() * 1000)
+                # Update extensions.json
+                target_extensions.append(new_entry)
+                try:
+                    extensions.save_extensions(target_dir, target_extensions)
+                    click.echo(f"✅ Success: {dest_path.name}")
+                    migrated_count += 1
+                except Exception as e:
+                    click.echo(
+                        f"❌ Copied but failed to update registry: {dest_path.name} due to {e}")
+                    skipped_count += 1
 
             except Exception as e:
                 click.echo(f"❌ Failed: {str(e)}")
