@@ -5,6 +5,7 @@ from typing import Tuple, Optional, Generator
 from contextlib import contextmanager
 from paramiko import SSHClient, SFTPClient
 from paramiko.config import SSHConfig
+from tqdm import tqdm
 
 
 def resolve_host_config(host_alias: str) -> Tuple[str, Optional[str], int, Optional[str]]:
@@ -100,7 +101,13 @@ def transfer_stream(
     """Stream data between SFTP connections with progress tracking"""
     with sftp_src.open(src_path, 'rb') as remote_file:
         file_size = sftp_src.stat(src_path).st_size
-        with click.progressbar(length=file_size, label='Transferring') as bar:
+        with tqdm(
+            total=file_size,
+            unit='B',
+            unit_scale=True,
+            unit_divisor=1024,
+            desc=f"Transferring {os.path.basename(src_path)}"
+        ) as bar:
             with sftp_dst.open(dst_path, 'wb') as remote_dst_file:
                 while True:
                     data = remote_file.read(32768)  # 32KB chunks
@@ -166,10 +173,10 @@ def bridge(
                 with sftp_dst.open(dst_path, 'wb') as f_dst:
                     f_dst.write(data)
 
-            click.echo(f"✅ Transferred {src_path} ➔ {dst_host}:{dst_path}")
+            click.echo(f"✅ Transferred {src} ➔ {dst}")
 
     except Exception as e:
-        click.echo(f"❌ Transfer failed: {str(e)}")
+        click.echo(f"❌ Transfer failed: {e}")
         raise click.Abort()
 
 

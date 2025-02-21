@@ -11,6 +11,7 @@ license = { text = "MIT" }
 dependencies = [
     "click",
     "paramiko",
+    "tqdm",
 ]
 
 [project.scripts]
