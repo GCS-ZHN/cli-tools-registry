@@ -1,7 +1,7 @@
 [project]
-name = "cli-code2cursor"
-version = "0.1.3"
-description = "Tools to migrate from vscode to cursor."
+name = "cli-r2r"
+version = "0.1.0"
+description = "data transfer between remote hosts"
 authors = [
     { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }
 ]
@@ -10,15 +10,11 @@ requires-python = ">=3.7"
 license = { text = "MIT" }
 dependencies = [
     "click",
-    "questionary",
-    "appdirs",
-    "dataclasses",
-    "json5",
-    "dataclasses-json"
+    "paramiko",
 ]
 
 [project.scripts]
-code2cursor = "cli_code2cursor.cli:main"
+r2r = "cli_r2r.cli:cli"
 
 [build-system]
 requires = ["setuptools>=61.0"]
