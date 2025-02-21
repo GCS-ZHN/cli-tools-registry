@@ -1,0 +1,28 @@
+[project]
+name = "cli-r2r"
+version = "0.1.0"
+description = "data transfer between remote hosts"
+authors = [
+    { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT" }
+dependencies = [
+    "click",
+    "paramiko",
+]
+
+[project.scripts]
+r2r = "cli_r2r.cli:cli"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
