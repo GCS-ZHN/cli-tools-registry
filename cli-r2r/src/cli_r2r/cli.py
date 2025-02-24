@@ -5,6 +5,7 @@ from typing import Tuple, Optional, Generator
 from contextlib import contextmanager
 from paramiko import SSHClient, SFTPClient
 from paramiko.config import SSHConfig
+from tqdm import tqdm
 
 
 def resolve_host_config(host_alias: str) -> Tuple[str, Optional[str], int, Optional[str]]:
@@ -95,13 +96,34 @@ def transfer_stream(
     sftp_src: SFTPClient,
     sftp_dst: SFTPClient,
     src_path: str,
-    dst_path: str
+    dst_path: str,
+    resume: bool = False
 ) -> None:
     """Stream data between SFTP connections with progress tracking"""
     with sftp_src.open(src_path, 'rb') as remote_file:
         file_size = sftp_src.stat(src_path).st_size
-        with click.progressbar(length=file_size, label='Transferring') as bar:
-            with sftp_dst.open(dst_path, 'wb') as remote_dst_file:
+        initial_pos = 0
+        
+        if resume:
+            try:
+                dst_attr = sftp_dst.stat(dst_path)
+                initial_pos = dst_attr.st_size
+                if initial_pos >= file_size:
+                    raise click.ClickException("Existing file is same size or larger than source")
+                remote_file.seek(initial_pos)
+                click.echo(f"Resuming transfer from {initial_pos} bytes")
+            except FileNotFoundError:
+                initial_pos = 0
+
+        with tqdm(
+            total=file_size,
+            unit='B',
+            unit_scale=True,
+            unit_divisor=1024,
+            desc=f"Transferring {os.path.basename(src_path)}",
+            initial=initial_pos
+        ) as bar:
+            with sftp_dst.open(dst_path, 'ab' if resume and initial_pos > 0 else 'wb') as remote_dst_file:
                 while True:
                     data = remote_file.read(32768)  # 32KB chunks
                     if not data:
@@ -125,7 +147,7 @@ def cli() -> None:
 @click.option('--port-dst', default=22, help='Destination SSH port (default: 22)')
 @click.option('--identity-src', default=None, help='Path to source private key')
 @click.option('--identity-dst', default=None, help='Path to destination private key')
-@click.option('--stream/--buffer', default=True, help='Transfer mode (default: stream)')
+@click.option('--resume', is_flag=True, help='Enable resume for partial transfers')
 def bridge(
     src: str,
     dst: str,
@@ -135,7 +157,7 @@ def bridge(
     port_dst: int,
     identity_src: Optional[str],
     identity_dst: Optional[str],
-    stream: bool
+    resume: bool
 ) -> None:
     """Transfer files between remote hosts"""
     try:
@@ -157,19 +179,11 @@ def bridge(
             port=port_dst,
             identity_file=identity_dst
         ) as sftp_dst:
-
-            if stream:
-                transfer_stream(sftp_src, sftp_dst, src_path, dst_path)
-            else:
-                with sftp_src.open(src_path, 'rb') as f_src:
-                    data = f_src.read()
-                with sftp_dst.open(dst_path, 'wb') as f_dst:
-                    f_dst.write(data)
-
-            click.echo(f"✅ Transferred {src_path} ➔ {dst_host}:{dst_path}")
+            transfer_stream(sftp_src, sftp_dst, src_path, dst_path, resume)
+            click.echo(f"✅ Transferred {src} ➔ {dst}")
 
     except Exception as e:
-        click.echo(f"❌ Transfer failed: {str(e)}")
+        click.echo(f"❌ Transfer failed: {e}")
         raise click.Abort()
 
 
