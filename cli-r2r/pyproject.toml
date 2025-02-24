@@ -1,6 +1,6 @@
 [project]
 name = "cli-r2r"
-version = "0.1.0"
+version = "0.1.1"
 description = "data transfer between remote hosts"
 authors = [
     { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }
