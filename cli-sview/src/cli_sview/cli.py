@@ -17,17 +17,34 @@ def convert_memory(mem_mb):
 
 
 @click.command()
-def sview():
+@click.option(
+    '--node', '-n',
+    type=click.STRING,
+    help='If provided, query it only'
+)
+@click.option(
+    '--partition', '-p',
+    type=click.STRING,
+    help='If provided, query it only')
+def sview(node: str = None, partiton: str = None):
     """
     Pretty view for available resources in Slurm.
     """
+    if node and partition:
+        print('Cannot specify both node and partition!')
+        exit(1)
     sinfo_bin = shutil.which('sinfo')
     if sinfo_bin is None:
         print('Please install slurm first!')
         exit(1)
     try:
+        cmds = [sinfo_bin, '-N', '--json']
+        if node:
+            cmds.extend(['-n', node])
+        if partition:
+            cmds.extend(['-p', partition])
         result = subprocess.run(
-            [sinfo_bin, '-N', '--json'],
+            cmds,
             capture_output=True,
             text=True,
             check=True)
@@ -46,16 +63,17 @@ def sview():
     data = json.loads(output)
 
     table = PrettyTable()
-    table.field_names = ["NODELIST", "CPUS(A/I/O/T)", "GRES_USED", "GRES_TOTAL", "MEMORY", "FREEMEM"]
+    table.field_names = ["NODELIST", "PARTITION", "CPUS(A/I/O/T)", "GRES_USED", "GRES_TOTAL", "MEMORY", "FREEMEM"]
 
     for node_info in data['sinfo']:
         node_name = node_info['nodes']['nodes'][0]
         cpus = f"{node_info['cpus']['allocated']}/{node_info['cpus']['idle']}/{node_info['cpus']['other']}/{node_info['cpus']['total']}"
         gres_used = node_info['gres']['used']
         gres_total = node_info['gres']['total']
+        partition = node_info['parition']['name']
         memory = convert_memory(node_info['memory']['minimum'])
         free_mem = convert_memory(node_info['memory']['free']['minimum']['number'])
-        table.add_row([node_name, cpus, gres_used, gres_total, memory, free_mem])
+        table.add_row([node_name, partition, cpus, gres_used, gres_total, memory, free_mem])
 
     print(table)
 
