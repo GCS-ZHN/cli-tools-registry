@@ -17,8 +17,10 @@ commands:
     authors:
     -   name: Honi Zhang
         email: zhang.h.n@foxmail.com
-    latest: 0.1.2
+    latest: 0.1.3
     versions:
+    -   version: 0.1.3
+        commit: cbc64dab7bf8f42a59df5712d4fb00d5cf35bb65
     -   version: 0.1.2
         commit: 615c8bbfe0ff6e0e32cb6193aba9c7d9687418eb
     -   version: 0.1.1
