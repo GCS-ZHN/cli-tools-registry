@@ -70,7 +70,7 @@ def sview(node: str = None, partition: str = None):
         cpus = f"{node_info['cpus']['allocated']}/{node_info['cpus']['idle']}/{node_info['cpus']['other']}/{node_info['cpus']['total']}"
         gres_used = node_info['gres']['used']
         gres_total = node_info['gres']['total']
-        partition = node_info['parition']['name']
+        partition = node_info['partition']['name']
         memory = convert_memory(node_info['memory']['minimum'])
         free_mem = convert_memory(node_info['memory']['free']['minimum']['number'])
         table.add_row([node_name, partition, cpus, gres_used, gres_total, memory, free_mem])
