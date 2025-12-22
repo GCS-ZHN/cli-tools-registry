@@ -26,7 +26,7 @@ def convert_memory(mem_mb):
     '--partition', '-p',
     type=click.STRING,
     help='If provided, query it only')
-def sview(node: str = None, partiton: str = None):
+def sview(node: str = None, partition: str = None):
     """
     Pretty view for available resources in Slurm.
     """
