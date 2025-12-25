@@ -1,0 +1,26 @@
+[project]
+name = "cli-notice"
+version = "0.1.0"
+description = "Webhook notice bot"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "appdirs>=1.4.4",
+    "click>=8.3.1",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[project.scripts]
+notice = "cli_notice.cli:notice"
