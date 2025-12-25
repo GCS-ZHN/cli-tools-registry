@@ -18,9 +18,9 @@ import requests
 
 class Bot(ABC):
     """Basic class for webhook bot"""
-    def __init__(self, webhook_url: str, signature_sercet: str|None = None):
+    def __init__(self, webhook_url: str, signature_secret: str|None = None):
         self.webhook_url = webhook_url
-        self.signature_secret = signature_sercet
+        self.signature_secret = signature_secret
         self.client = requests.Session()
 
     @abstractmethod
