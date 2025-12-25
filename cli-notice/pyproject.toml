@@ -2,6 +2,9 @@
 name = "cli-notice"
 version = "0.1.0"
 description = "Webhook notice bot"
+authors = [
+    { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }
+]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
