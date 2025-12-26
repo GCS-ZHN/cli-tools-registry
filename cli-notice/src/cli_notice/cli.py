@@ -1,5 +1,6 @@
 import click
 import yaml
+import ast
 
 from .bot import FeishuBot
 from appdirs import user_config_dir
@@ -45,12 +46,18 @@ def flush_config(config: dict):
 @click.option('--update-config', '-u',
               is_flag=True,
               help='Force update config')
+@click.option('--escape', '-e',
+              is_flag=True,
+              help='Enable interpretation of backslash escapes')
 def notice(
     message: tuple[str],
     bot_type: str = 'feishu',
     at: tuple[str] = tuple(),
-    update_config: bool = False):
+    update_config: bool = False,
+    escape: bool = False):
     message = ' '.join(message)
+    if escape:
+        message = ast.literal_eval('"' + message + '"')
     if config_file.exists():
         with open(config_file) as f:
             config = yaml.safe_load(f)
