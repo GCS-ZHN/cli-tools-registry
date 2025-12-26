@@ -31,7 +31,7 @@ class Bot(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def send_message(self, message: str):
+    def send_message(self, message: str, at: tuple[str] = tuple()):
         """
         Send message.
         
@@ -39,6 +39,9 @@ class Bot(ABC):
         ----------
             message: str
                The message to send.
+
+            at: tuple[str]
+               user id to at if provided.
         
         Raises
         ------
@@ -72,7 +75,14 @@ class FeishuBot(Bot):
             'sign': sign
         }
     
-    def send_message(self, message: str):
+    def send_message(self, message: str, at: tuple[str] = tuple()):
+        if at:
+            temp = '<at user_id="{}">{}</at>'
+            at = set(at)
+            if 'all' in at:
+                at = {'all'}
+            at_msg = ''.join([temp.format(user_id, user_id) for user_id in at])
+            message += at_msg
         msg_body = {
             **self.get_signature(),
             "msg_type": "text",
