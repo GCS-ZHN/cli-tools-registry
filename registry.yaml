@@ -64,6 +64,6 @@ commands:
     latest: 0.1.1
     versions:
     -   version: 0.1.1
-        commit: e42310b2417410c37f03c4a86e29b8aa03a14026
+        commit: 166e718382af01b1a1b617db2b235416b591c6d4
     -   version: 0.1.0
         commit: 92900ffecf5b99e47200dba68f5b1d70700f76ab
