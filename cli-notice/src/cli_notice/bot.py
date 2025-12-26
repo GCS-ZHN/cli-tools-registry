@@ -98,4 +98,3 @@ class FeishuBot(Bot):
         res_body = res.json()
         if 'code' in res_body and res_body['code'] != 0:
             raise BotError(f"Error: {res_body['msg']}")
-
