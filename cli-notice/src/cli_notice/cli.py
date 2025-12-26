@@ -39,33 +39,38 @@ def flush_config(config: dict):
               type=click.Choice(['feishu']),
               help='Bot type',
               show_default=True)
-def notice(message: list[str], bot_type: str = 'feishu'):
+@click.option('--at', '-a',
+              multiple=True,
+              help='User id to at')
+@click.option('--update-config', '-u',
+              is_flag=True,
+              help='Force update config')
+def notice(
+    message: tuple[str],
+    bot_type: str = 'feishu',
+    at: tuple[str] = tuple(),
+    update_config: bool = False):
     message = ' '.join(message)
     if config_file.exists():
         with open(config_file) as f:
             config = yaml.safe_load(f)
     else:
         config = {}
-    
-    if 'bots' not in config:
-        config['bots'] = {bot_type: _configure(f' for {bot_type} Bot')}
-        flush_config(config)
-    if bot_type not in config['bots']:
-        config['bots'][bot_type] = _configure(f' for {bot_type} Bot')
-        flush_config(config)
-    elif 'webhook_url' not in config['bots'][bot_type]:
-        config['bots'][bot_type] = _configure(f' for {bot_type} Bot')
+
+    bot_config:dict = config.setdefault('bots', {}).setdefault(bot_type, {})
+    if not bot_config.get('webhook_url') or update_config:
+        bot_config.update(_configure(f' for {bot_type} Bot'))
         flush_config(config)
 
-    bot_config = config['bots'][bot_type]
     if bot_type == 'feishu':
         bot = FeishuBot(**bot_config)
     else:
         click.echo(f'Unsupport bot type {bot_type}', err=True)
         exit(1)
     try:
-        bot.send_message(message)
+        bot.send_message(message, at=at)
     except Exception as e:
         click.echo(f'Failed to send message: {e}', err=True)
         exit(1)
     click.echo('Message sent')
+
