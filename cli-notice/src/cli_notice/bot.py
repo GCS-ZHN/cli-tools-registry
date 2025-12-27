@@ -18,15 +18,25 @@ import requests
 
 class Bot(ABC):
     """Basic class for webhook bot"""
-    def __init__(self, webhook_url: str, signature_secret: str|None = None):
-        self.webhook_url = webhook_url
-        self.signature_secret = signature_secret
-        self.client = requests.Session()
+    def __init__(self, webhook_url: str|None = None, signature_secret: str|None = None, access_token: str | None = None):
+        if webhook_url is None and access_token is None:
+            raise ValueError("Webhoook url or access token must be provided.")
+        if webhook_url is not None and access_token is not None:
+            raise ValueError("Webhook url and access token cannot be provided at the same time ")
+        self._webhook_url = webhook_url
+        self._signature_secret = signature_secret
+        self._access_token = access_token
+        self._client = requests.Session()
+
+    @abstractmethod
+    def get_url(self) -> str:
+        """Get webhook url"""
+        raise NotImplementedError
 
     @abstractmethod
     def get_signature(self):
         """
-        Get signature for webhook request.
+        get signature with secret.
         """
         raise NotImplementedError
 
@@ -60,11 +70,18 @@ class FeishuBot(Bot):
     Feishu Webhook bot, See detail at
     https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot
     """
+    def get_url(self):
+        if self._webhook_url:
+            return self._webhook_url
+
+        return f'https://open.feishu.cn/open-apis/bot/v2/hook/{self._access_token}'
+    
     def get_signature(self):
-        if not self.signature_secret:
+        if not self._signature_secret:
             return {}
-        timestamp = str(int(time.time()))
-        string_to_sign = f'{timestamp}\n{self.signature_secret}'
+        timestamp = time.time()
+        timestamp = str(int(timestamp))
+        string_to_sign = f'{timestamp}\n{self._signature_secret}'
         hmac_code = hmac.new(
             string_to_sign.encode('utf-8'),
             digestmod=hashlib.sha256
@@ -74,7 +91,7 @@ class FeishuBot(Bot):
             'timestamp': timestamp,
             'sign': sign
         }
-    
+
     def send_message(self, message: str, at: tuple[str] = tuple()):
         if at:
             temp = '<at user_id="{}">{}</at>'
@@ -90,11 +107,77 @@ class FeishuBot(Bot):
                 "text": message
             }
         }
-        res = self.client.post(
-            self.webhook_url,
+        res = self._client.post(
+            self.get_url(),
             json=msg_body
         )
         res.raise_for_status()
         res_body = res.json()
         if 'code' in res_body and res_body['code'] != 0:
             raise BotError(f"Error: {res_body['msg']}")
+
+
+class DingTalkBot(Bot):
+    """
+    DingTalk webhook bot, see detail at
+    https://open.dingtalk.com/document/dingstart/custom-bot-to-send-group-chat-messages
+    """
+
+    def get_url(self):
+        sign_data  = self.get_signature()
+        if self._webhook_url:
+            base_url = self._webhook_url
+        else:
+            base_url = f'https://oapi.dingtalk.com/robot/send?access_token={self._access_token}'
+        
+        if self._signature_secret:
+            base_url += '&timestamp=' + sign_data['timestamp']
+            base_url += '&sign=' + sign_data['sign']
+        
+        return base_url
+    
+    def get_signature(self):
+        """
+        get signature with secret.
+        """
+
+        if not self._signature_secret:
+            return {}
+        timestamp = time.time() * 1000
+        timestamp = str(int(timestamp))
+        string_to_sign = f'{timestamp}\n{self._signature_secret}'
+        hmac_code = hmac.new(
+            self._signature_secret.encode('utf-8'),
+            string_to_sign.encode('utf-8'),
+            digestmod=hashlib.sha256
+        ).digest()
+        sign = base64.b64encode(hmac_code).decode('utf-8')
+        return {
+            'timestamp': timestamp,
+            'sign': sign
+        }
+
+    def send_message(self, message: str, at: tuple[str] = tuple()):
+        msg_body = {
+            'msgtype': 'text',
+            'text': {
+                'content': message
+            }
+        }
+
+        at = list(set(at))
+        if at:
+            msg_body['at'] = {
+                'isAtAll': 'all' in at,
+            }
+            if not msg_body['at']['isAtAll']:
+                msg_body['at']['atUserIds'] = at
+
+        res = self._client.post(
+            self.get_url(),
+            json=msg_body
+        )
+        res.raise_for_status()
+        res_body = res.json()
+        if res_body['errcode'] != 0:
+            raise BotError(f"Error: {res_body['errmsg']}")
