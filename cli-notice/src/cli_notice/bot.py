@@ -181,3 +181,42 @@ class DingTalkBot(Bot):
         res_body = res.json()
         if res_body['errcode'] != 0:
             raise BotError(f"Error: {res_body['errmsg']}")
+
+
+class TelegramBot(Bot):
+    """
+    Telegram bot, using bot token and chat id, see detail at
+    https://core.telegram.org/bots/api. Actually, telegram does
+    not provided a direct webhook url like feishu or dingtalk
+    to send message because official bot api is more flexible.
+    """
+    def get_url(self):
+        if self._webhook_url:
+            return self._webhook_url
+        return f'https://api.telegram.org/bot{self._access_token}/sendMessage'
+
+    def get_signature(self):
+        """Telegram do not require signature"""
+        pass
+
+    def send_message(self, message: str, at: tuple[str]):
+        if not at:
+            raise BotError(
+                'Telegram bot must specify `chat_id` in `at`, query your chat_id from @userinfobot')
+        
+        for chat_id in set(at):
+            msg_body = {
+                'text': message,
+                'parse_mode': 'MarkdownV2',
+                'chat_id': chat_id
+            }
+
+            res = self._client.post(
+                self.get_url(),
+                json=msg_body
+            )
+            res.raise_for_status()
+            res_body = res.json()
+            if not res_body['ok']:
+                raise BotError(f"Error: {res_body['description']}")
+

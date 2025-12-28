@@ -2,7 +2,7 @@ import click
 import yaml
 import ast
 
-from .bot import FeishuBot, DingTalkBot
+from .bot import FeishuBot, DingTalkBot, TelegramBot
 from appdirs import user_config_dir
 from pathlib import Path
 
@@ -11,7 +11,7 @@ config_home.mkdir(parents=True, exist_ok=True)
 config_file = config_home / 'config.yaml'
 
 
-def _configure(suffix: str = ''):
+def _configure(suffix: str = '', has_sign: bool = True):
     config = {}
     while not (webhook_url_or_token := click.prompt(
         f'Webhook url or access token{suffix}').strip()):
@@ -21,7 +21,7 @@ def _configure(suffix: str = ''):
     else:
         config['access_token'] = webhook_url_or_token
 
-    if (signature_secret := click.prompt(
+    if has_sign and (signature_secret := click.prompt(
         f'Signature secret{suffix}, [optional]',
         hide_input=True,
         default='').strip()):
@@ -39,7 +39,7 @@ def flush_config(config: dict):
 @click.argument('message', nargs=-1, required=True)
 @click.option('--bot-type', '-b',
               default='feishu',
-              type=click.Choice(['feishu', 'dingtalk']),
+              type=click.Choice(['feishu', 'dingtalk', 'telegram']),
               help='Bot type',
               show_default=True)
 @click.option('--at', '-a',
@@ -69,14 +69,16 @@ def notice(
     bot_config:dict = config.setdefault('bots', {}).setdefault(bot_type, {})
     if not (bot_config.get('webhook_url') or bot_config.get('access_token')) or update_config:
         bot_config.clear()
-        bot_config.update(_configure(f' for {bot_type} Bot'))
+        bot_config.update(_configure(
+            f' for {bot_type} Bot', has_sign=bot_type != 'telegram'))
         flush_config(config)
 
-    print(config_file)
     if bot_type == 'feishu':
         bot = FeishuBot(**bot_config)
     elif bot_type == 'dingtalk':
         bot = DingTalkBot(**bot_config)
+    elif bot_type == 'telegram':
+        bot = TelegramBot(**bot_config)
     else:
         click.echo(f'Unsupport bot type {bot_type}', err=True)
         exit(1)
