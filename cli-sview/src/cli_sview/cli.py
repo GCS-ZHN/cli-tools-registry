@@ -16,6 +16,110 @@ def convert_memory(mem_mb):
     return f"{size:.2f}PB"
 
 
+def get_sinfo_from_json(sinfo_bin: str, node: str = None, partition: str = None):
+    try:
+        cmds = [sinfo_bin, '-N', '--json']
+        if node:
+            cmds.extend(['-n', node])
+        if partition:
+            cmds.extend(['-p', partition])
+        result = subprocess.run(
+            cmds,
+            capture_output=True,
+            text=True,
+            check=True)
+    except subprocess.CalledProcessError as e:
+        error_msg = (
+            f"Excutate command: {e.cmd} failed\n"
+            f"Exit code: {e.returncode}\n"
+            f"STDOUT: {e.stdout}\n"
+            f"STDERR: {e.stderr}"
+        )
+        return False, error_msg
+
+    output = result.stdout
+
+    data = json.loads(output)
+
+    table = PrettyTable()
+    table.field_names = ["NODELIST", "PARTITION", "CPUS(A/I/O/T)", "GRES_USED", "GRES_TOTAL", "MEMORY", "FREEMEM"]
+
+    for node_info in data['sinfo']:
+        node_name = node_info['nodes']['nodes'][0]
+        cpus = f"{node_info['cpus']['allocated']}/{node_info['cpus']['idle']}/{node_info['cpus']['other']}/{node_info['cpus']['total']}"
+        gres_used = node_info['gres']['used']
+        gres_total = node_info['gres']['total']
+        partition_name = node_info['partition']['name']
+        memory = convert_memory(node_info['memory']['minimum'])
+        free_mem = convert_memory(node_info['memory']['free']['minimum']['number'])
+        table.add_row([node_name, partition_name, cpus, gres_used, gres_total, memory, free_mem])
+
+    print(table)
+    return True, None
+
+
+def get_sinfo_from_default(sinfo_bin: str, node: str = None, partition: str = None):
+    try:
+        query_args = [
+            'NodeList',
+            'Partition',
+            'CPUsState',
+            'GresUsed',
+            'Gres',
+            'Memory',
+            'FreeMem'
+        ]
+        cmds = [
+            sinfo_bin,
+            '-N',
+            '-O', '|,'.join(x + ':.' for x in query_args)
+        ]
+        if partition:
+            cmds.extend(['-p', partition])
+        if node:
+            cmds.extend(['-n', node])
+        result = subprocess.run(
+            cmds,
+            capture_output=True,
+            text=True,
+            check=True)
+    except subprocess.CalledProcessError as e:
+        error_msg = (
+            f"Excutate command: {e.cmd} failed\n"
+            f"Exit code: {e.returncode}\n"
+            f"STDOUT: {e.stdout}\n"
+            f"STDERR: {e.stderr}"
+        )
+        return False, error_msg
+    
+    output = result.stdout
+    cols: list[str] = None
+    data: list[dict[str, str]] = []
+    for i, line in enumerate(output.splitlines()):
+        line = list(map(str.strip, line.split('|')))
+        if i == 0:
+            cols = line
+        else:
+            assert len(cols) == len(line)
+            data.append(dict(zip(cols, line)))
+
+    table = PrettyTable()
+    table.field_names = ["NODELIST", "PARTITION", "CPUS(A/I/O/T)", "GRES_USED", "GRES_TOTAL", "MEMORY", "FREEMEM"]
+    for row in data:
+        node_name = row['NODELIST']
+        partition_name = row['PARTITION']
+        cpus = row['CPUS(A/I/O/T)']
+        gres_used = row['GRES_USED']
+        gres_total = row['GRES']
+        memory = convert_memory(row['MEMORY'])
+        free_mem = convert_memory(row['FREE_MEM'])
+
+        table.add_row([node_name, partition_name, cpus, gres_used, gres_total, memory, free_mem])
+
+    print(table)
+    return True, None
+
+
 @click.command()
 @click.option(
     '--node', '-n',
@@ -37,45 +141,14 @@ def sview(node: str = None, partition: str = None):
     if sinfo_bin is None:
         print('Please install slurm first!')
         exit(1)
-    try:
-        cmds = [sinfo_bin, '-N', '--json']
-        if node:
-            cmds.extend(['-n', node])
-        if partition:
-            cmds.extend(['-p', partition])
-        result = subprocess.run(
-            cmds,
-            capture_output=True,
-            text=True,
-            check=True)
-    except subprocess.CalledProcessError as e:
-        error_msg = (
-            f"Excutate command: {e.cmd} failed\n"
-            f"Exit code: {e.returncode}\n"
-            f"STDOUT: {e.stdout}\n"
-            f"STDERR: {e.stderr}"
-        )
-        print(error_msg)
+
+    stat, err = get_sinfo_from_json(sinfo_bin, node, partition)
+    if not stat:
+        stat, err = get_sinfo_from_default(sinfo_bin, node, partition)
+    
+    if not stat:
+        print(err)
         exit(1)
-
-    output = result.stdout
-
-    data = json.loads(output)
-
-    table = PrettyTable()
-    table.field_names = ["NODELIST", "PARTITION", "CPUS(A/I/O/T)", "GRES_USED", "GRES_TOTAL", "MEMORY", "FREEMEM"]
-
-    for node_info in data['sinfo']:
-        node_name = node_info['nodes']['nodes'][0]
-        cpus = f"{node_info['cpus']['allocated']}/{node_info['cpus']['idle']}/{node_info['cpus']['other']}/{node_info['cpus']['total']}"
-        gres_used = node_info['gres']['used']
-        gres_total = node_info['gres']['total']
-        partition = node_info['partition']['name']
-        memory = convert_memory(node_info['memory']['minimum'])
-        free_mem = convert_memory(node_info['memory']['free']['minimum']['number'])
-        table.add_row([node_name, partition, cpus, gres_used, gres_total, memory, free_mem])
-
-    print(table)
 
 
 if __name__ == "__main__":
