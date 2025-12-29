@@ -35,7 +35,7 @@ def get_sinfo_from_json(sinfo_bin: str, node: str = None, partition: str = None)
             f"STDOUT: {e.stdout}\n"
             f"STDERR: {e.stderr}"
         )
-        return False, error_msg
+        raise RuntimeError(error_msg) from e
 
     output = result.stdout
 
@@ -55,7 +55,6 @@ def get_sinfo_from_json(sinfo_bin: str, node: str = None, partition: str = None)
         table.add_row([node_name, partition_name, cpus, gres_used, gres_total, memory, free_mem])
 
     print(table)
-    return True, None
 
 
 def get_sinfo_from_default(sinfo_bin: str, node: str = None, partition: str = None):
@@ -90,8 +89,8 @@ def get_sinfo_from_default(sinfo_bin: str, node: str = None, partition: str = No
             f"STDOUT: {e.stdout}\n"
             f"STDERR: {e.stderr}"
         )
-        return False, error_msg
-    
+        raise RuntimeError(error_msg) from e
+
     output = result.stdout
     cols: list[str] = None
     data: list[dict[str, str]] = []
@@ -117,7 +116,6 @@ def get_sinfo_from_default(sinfo_bin: str, node: str = None, partition: str = No
         table.add_row([node_name, partition_name, cpus, gres_used, gres_total, memory, free_mem])
 
     print(table)
-    return True, None
 
 
 @click.command()
@@ -142,12 +140,14 @@ def sview(node: str = None, partition: str = None):
         print('Please install slurm first!')
         exit(1)
 
-    stat, err = get_sinfo_from_json(sinfo_bin, node, partition)
-    if not stat:
-        stat, err = get_sinfo_from_default(sinfo_bin, node, partition)
-    
-    if not stat:
-        print(err)
+    for method in (get_sinfo_from_json, get_sinfo_from_default):
+        try:
+            method(sinfo_bin, node, partition)
+            break
+        except Exception as e:
+            err = e
+    else:
+        print(err.__class__.__name__, ':', str(err))
         exit(1)
 
 
