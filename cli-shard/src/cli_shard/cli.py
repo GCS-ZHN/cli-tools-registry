@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+from protools import seqio
 import click
 
 
@@ -45,7 +46,8 @@ def shard(input_file: Path, output_dir: Path, num_shard: int, shuffle: bool = Fa
         '.csv': pd.read_csv,
         '.pkl': pd.read_pickle,
         '.xlsx': pd.read_excel,
-        '.xls': pd.read_excel
+        '.xls': pd.read_excel,
+        '.fasta': lambda x: seqio.read_fasta(x).to_dataframe()[['id', 'sequence']]
     }
 
     file_ext = input_file.suffix
