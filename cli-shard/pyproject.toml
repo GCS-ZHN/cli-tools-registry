@@ -1,18 +1,19 @@
 [project]
 name = "cli-shard"
-version = "0.1.1"
+version = "0.1.2"
 description = "Shard the input file into smaller files"
 authors = [
     { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }
 ]
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = [
     "click",
     "pandas",
     "numpy",
-    "openpyxl"
+    "openpyxl",
+    "protools4py>=1.2.2",
 ]
 
 [project.scripts]
