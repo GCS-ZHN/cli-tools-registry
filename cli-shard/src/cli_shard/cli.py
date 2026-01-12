@@ -4,6 +4,31 @@ from protools import seqio
 import click
 
 
+def binary_split(file: Path, output_dir: Path, num_shard: int):
+    """
+    Split a binary file into multiple shards (similar to Linux split command)
+    """
+    stat_size = file.stat().st_size
+    chunk_size = stat_size // num_shard
+    output_dir.mkdir(parents=True, exist_ok=True)
+    max_buffer_size = 1<<17 # 128k
+    with open(file, 'rb') as f:
+        for i in range(num_shard):
+            with open(output_dir / f'shard_{i}.bin', 'wb') as w:
+                if i < num_shard - 1:
+                    read_size = 0
+                    while read_size < chunk_size: 
+                        buffer_len = min(max_buffer_size, chunk_size - read_size)
+                        buffer = f.read(buffer_len)
+                        assert len(buffer) == buffer_len
+                        w.write(buffer)
+                        read_size += buffer_len
+                    
+                    assert read_size == chunk_size
+                else:
+                    for buffer in iter(lambda: f.read(max_buffer_size), b''):
+                        w.write(buffer)
+
 @click.command()
 @click.option(
     '--input_file', '-i',
@@ -47,15 +72,16 @@ def shard(input_file: Path, output_dir: Path, num_shard: int, shuffle: bool = Fa
         '.pkl': pd.read_pickle,
         '.xlsx': pd.read_excel,
         '.xls': pd.read_excel,
-        '.fasta': lambda x: seqio.read_fasta(x).to_dataframe()[['id', 'sequence']]
+        '.fasta': lambda x: seqio.read_fasta(x).to_dataframe()[['id', 'sequence']],
     }
 
     file_ext = input_file.suffix
     if file_ext in file_read:
         df: pd.DataFrame = file_read[file_ext](input_file)
     else:
-        supported_formats = ', '.join(file_read.keys())
-        raise ValueError(f"Unsupported file format. Supported formats are: {supported_formats}")
+        click.echo('Unknown file type detected, binary splitting in order(not shuffled).')
+        binary_split(input_file, output_dir, num_shard)
+        return
     
     if shuffle:
         df = df.sample(frac=1).reset_index(drop=True)
