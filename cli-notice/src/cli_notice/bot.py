@@ -8,6 +8,7 @@ Webhook bots for sending notifications.
 
 
 from abc import ABC, abstractmethod
+from functools import wraps
 
 import hashlib
 import base64
@@ -65,6 +66,28 @@ class BotError(RuntimeError):
     pass
 
 
+class MaxRetryError(RuntimeError):
+    pass
+
+def retry(max_try: int = 3, delay: int = 1):
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for i in range(max_try):
+                try:
+                    return func(*args, **kwargs)
+                except (BotError, requests.HTTPError) as e:
+                    time.sleep(delay)
+                    err = e
+            else:
+                raise MaxRetryError(
+                    f"Max retry {max_try} reached due to '{err}'") from err
+        return wrapper
+
+    return decorator
+
+
 class FeishuBot(Bot):
     """
     Feishu Webhook bot, See detail at
@@ -92,6 +115,7 @@ class FeishuBot(Bot):
             'sign': sign
         }
 
+    @retry(max_try=3, delay=5)
     def send_message(self, message: str, at: tuple[str] = tuple()):
         if at:
             temp = '<at user_id="{}">{}</at>'
@@ -157,6 +181,7 @@ class DingTalkBot(Bot):
             'sign': sign
         }
 
+    @retry(max_try=3, delay=5)
     def send_message(self, message: str, at: tuple[str] = tuple()):
         msg_body = {
             'msgtype': 'text',
@@ -199,6 +224,7 @@ class TelegramBot(Bot):
         """Telegram do not require signature"""
         pass
 
+    @retry(max_try=3, delay=5)
     def send_message(self, message: str, at: tuple[str]):
         if not at:
             raise BotError(
