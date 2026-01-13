@@ -1,6 +1,6 @@
 [project]
 name = "cli-notice"
-version = "0.1.4"
+version = "0.1.5"
 description = "Webhook notice bot"
 authors = [
     { name = "Honi Zhang", email = "zhang.h.n@foxmail.com" }

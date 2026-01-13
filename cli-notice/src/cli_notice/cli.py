@@ -51,12 +51,16 @@ def flush_config(config: dict):
 @click.option('--escape', '-e',
               is_flag=True,
               help='Enable interpretation of backslash escapes')
+@click.option('--print-console','-pc',
+              is_flag=True,
+              help='Print message to console while sending message successfully')
 def notice(
     message: tuple[str],
     bot_type: str = 'feishu',
     at: tuple[str] = tuple(),
     update_config: bool = False,
-    escape: bool = False):
+    escape: bool = False,
+    print_console: bool = False):
     message = ' '.join(message)
     if escape:
         message = ast.literal_eval('"' + message + '"')
@@ -87,5 +91,7 @@ def notice(
     except Exception as e:
         click.echo(f'Failed to send message: {e}', err=True)
         exit(1)
-    click.echo('Message sent')
-
+    if print_console:
+        click.echo(message)
+    else:
+        click.echo('Message sent successfully')
